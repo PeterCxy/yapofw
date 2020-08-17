@@ -152,6 +152,9 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
         free(item);
         i++;
     }
+
+    fclose(fp);
+
     return items;
 }
 
