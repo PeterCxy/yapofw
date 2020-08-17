@@ -1,7 +1,10 @@
 #include "tcp.h"
+#include "util.h"
 #include <arpa/inet.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 
 tcp_sock_listen_t *listen_sockets = NULL;
@@ -45,6 +48,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
         }
 
         listen_sockets[listen_sockets_len].src_fd = fd;
+        listen_sockets[listen_sockets_len].src_addr = config[i].src_addr;
         listen_sockets[listen_sockets_len].dst_addr = config[i].dst_addr;
         listen_sockets_len++;
 
@@ -53,4 +57,43 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
     }
     
     return 0;
+}
+
+int tcp_build_fd_sets(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    int max_fd = -1;
+
+    // All listening sockets need to be monitored for read
+    for (int i = 0; i < listen_sockets_len; i++) {
+        FD_SET(listen_sockets[i].src_fd, readfds);
+        if (listen_sockets[i].src_fd > max_fd)
+            max_fd = listen_sockets[i].src_fd;
+    }
+
+    return max_fd;
+}
+
+void tcp_handle_accept(fd_set *readfds) {
+    // Loop over all listening sockets to see if we need to accept any new connection
+    for (int i = 0; i < listen_sockets_len; i++) {
+        if (!FD_ISSET(listen_sockets[i].src_fd, readfds)) continue;
+        // New connection!
+        struct sockaddr client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+        int client_fd;
+        if ((client_fd = accept(listen_sockets[i].src_fd, &client_addr, &client_addr_len)) < 0) {
+            printf("[TCP] Error accepting incoming connection: %s\n", strerror(errno));
+            continue;
+        }
+
+        char ip_str[255];
+        printf("[TCP] New connection from %s:%d on %s:%d, target: %s:%d\n",
+            get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
+            config_addr_to_str(&listen_sockets[i].src_addr), listen_sockets[i].src_addr.port,
+            config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port);
+    }
+}
+
+void tcp_ev_loop_handler(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
+    // Handle new connections from the listening socket
+    tcp_handle_accept(readfds);
 }
