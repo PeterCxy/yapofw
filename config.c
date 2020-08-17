@@ -146,6 +146,7 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
         config_item_t *item = parse_line(line);
         if (item == NULL) {
             printf("Invalid config\n");
+            free(items);
             return NULL;
         }
         items[i] = *item;
