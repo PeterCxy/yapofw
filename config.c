@@ -168,7 +168,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
         struct sockaddr_in *ret = malloc(sizeof(struct sockaddr_in));
         if (ret == NULL) return NULL;
         ret->sin_family = AF_INET;
-        ret->sin_port = addr->port;
+        ret->sin_port = htons(addr->port);
         ret->sin_addr = addr->addr.addr4;
         *sockaddr_len = sizeof(struct sockaddr_in);
         return (struct sockaddr *) ret;
@@ -176,7 +176,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
         struct sockaddr_in6 *ret = malloc(sizeof(struct sockaddr_in6));
         if (ret == NULL) return NULL;
         ret->sin6_family = AF_INET6;
-        ret->sin6_port = addr->port;
+        ret->sin6_port = htons(addr->port);
         ret->sin6_addr = addr->addr.addr6;
         *sockaddr_len = sizeof(struct sockaddr_in6);
         return (struct sockaddr *) ret;
