@@ -1,3 +1,4 @@
+#pragma once
 #include <netinet/ip.h>
 
 typedef struct {
