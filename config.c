@@ -1,8 +1,25 @@
 #include "config.h"
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+char *ltrim(char *s) {
+    while (isspace(*s)) s++;
+    return s;
+}
+
+char *rtrim(char *s) {
+    char* back = s + strlen(s);
+    while (isspace(*--back));
+    *(back + 1) = '\0';
+    return s;
+}
+
+char *trim(char *s) {
+    return rtrim(ltrim(s)); 
+}
 
 int parse_proto(char *s_proto, config_proto_t *proto, config_addr_t *addr_info) {
     if (strcmp(s_proto, "tcp") == 0) {
@@ -44,9 +61,11 @@ int parse_addr(char *s_addr, config_addr_t *addr_info) {
 
 config_item_t *parse_line(char *line) {
     // Make a copy for use with strtok
-    char *line_copy = malloc(strlen(line));
-    strcpy(line_copy, line);
-
+    char *_line_copy = malloc(strlen(line));
+    if (_line_copy == NULL) return NULL;
+    strcpy(_line_copy, line);
+    char *line_copy = trim(_line_copy);
+    
     enum {
         START, SRC_PROTO_READ, SRC_ADDR_READ, DST_PROTO_READ, FINAL
     } line_parse_state = START;
@@ -119,6 +138,7 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
     // Read config line by line
     fseek(fp, 0, SEEK_SET);
     config_item_t *items = malloc(sizeof(config_item_t) * (*num_items));
+    if (items == NULL) return NULL;
     size_t i = 0;
     while ((read = getline(&line, &len, fp)) != -1) {
         config_item_t *item = parse_line(line);
