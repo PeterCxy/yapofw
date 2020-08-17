@@ -52,7 +52,11 @@ int parse_addr(char *s_addr, config_addr_t *addr_info) {
 
     addr_info->port = atoi(port_ptr + 1);
 
-    if (inet_pton(addr_info->af, s_addr, &addr_info->addr) != 0) {
+    char ip_addr[255];
+    memcpy(ip_addr, s_addr, port_ptr - s_addr);
+    ip_addr[port_ptr - s_addr] = '\0';
+
+    if (inet_pton(addr_info->af, ip_addr, &addr_info->addr) != 1) {
         return -1;
     }
 
