@@ -70,6 +70,7 @@ config_item_t *parse_line(char *line) {
         START, SRC_PROTO_READ, SRC_ADDR_READ, DST_PROTO_READ, FINAL
     } line_parse_state = START;
     config_item_t *ret = malloc(sizeof(config_item_t));
+    if (ret == NULL) return NULL;
 
     char *token = strtok(line_copy, " ");
     do {
@@ -118,6 +119,7 @@ config_item_t *parse_line(char *line) {
 
 error_out:
     free(line_copy);
+    free(ret);
     return NULL;
 }
 
