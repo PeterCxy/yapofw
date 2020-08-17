@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/socket.h>
 
 tcp_sock_listen_t *listen_sockets = NULL;
@@ -15,6 +16,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
     // it should be fine as we don't expect too many lines of configuration
     listen_sockets = malloc(sizeof(tcp_sock_listen_t) * config_len);
     if (listen_sockets == NULL) return -1;
+    bzero(listen_sockets, sizeof(tcp_sock_listen_t) * config_len);
 
     for (size_t i = 0; i < config_len; i++) {
         if (config[i].src_proto != TCP || config[i].dst_proto != TCP)
@@ -29,7 +31,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
         char *address_str = config_addr_to_str(&config[i].src_addr);
         printf("[TCP] Listening on %s:%d\n", address_str, config[i].src_addr.port);
 
-        size_t sockaddr_len;
+        size_t sockaddr_len = 0;
         struct sockaddr *address =
             config_addr_to_sockaddr(&config[i].src_addr, &sockaddr_len);
         if (address == NULL) {
@@ -73,6 +75,9 @@ int tcp_build_fd_sets(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
 }
 
 void tcp_handle_accept(fd_set *readfds) {
+    char ip_str[255];
+    bzero(ip_str, 255);
+
     // Loop over all listening sockets to see if we need to accept any new connection
     for (int i = 0; i < listen_sockets_len; i++) {
         if (!FD_ISSET(listen_sockets[i].src_fd, readfds)) continue;
@@ -85,7 +90,6 @@ void tcp_handle_accept(fd_set *readfds) {
             continue;
         }
 
-        char ip_str[255];
         printf("[TCP] New connection from %s:%d on %s:%d, target: %s:%d\n",
             get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
             config_addr_to_str(&listen_sockets[i].src_addr), listen_sockets[i].src_addr.port,

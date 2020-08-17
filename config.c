@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 char *ltrim(char *s) {
     while (isspace(*s)) s++;
@@ -75,6 +76,7 @@ config_item_t *parse_line(char *line) {
     } line_parse_state = START;
     config_item_t *ret = malloc(sizeof(config_item_t));
     if (ret == NULL) return NULL;
+    bzero(ret, sizeof(config_item_t));
 
     char *token = strtok(line_copy, " ");
     do {
@@ -167,6 +169,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
     if (addr->af == AF_INET) {
         struct sockaddr_in *ret = malloc(sizeof(struct sockaddr_in));
         if (ret == NULL) return NULL;
+        bzero(ret, sizeof(struct sockaddr_in));
         ret->sin_family = AF_INET;
         ret->sin_port = htons(addr->port);
         ret->sin_addr = addr->addr.addr4;
@@ -175,6 +178,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
     } else if (addr->af == AF_INET6) {
         struct sockaddr_in6 *ret = malloc(sizeof(struct sockaddr_in6));
         if (ret == NULL) return NULL;
+        bzero(ret, sizeof(struct sockaddr_in6));
         ret->sin6_family = AF_INET6;
         ret->sin6_port = htons(addr->port);
         ret->sin6_addr = addr->addr.addr6;
@@ -187,6 +191,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
 
 char *config_addr_to_str(config_addr_t *addr) {
     char *address_str = malloc(255);
+    bzero(address_str, 255);
     inet_ntop(addr->af, &addr->addr,
         address_str, sizeof(addr->addr));
     return address_str;
