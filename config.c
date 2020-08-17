@@ -154,7 +154,7 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
 }
 
 struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_len) {
-    if (addr->af = AF_INET) {
+    if (addr->af == AF_INET) {
         struct sockaddr_in *ret = malloc(sizeof(struct sockaddr_in));
         if (ret == NULL) return NULL;
         ret->sin_family = AF_INET;
@@ -162,7 +162,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
         ret->sin_addr = addr->addr.addr4;
         *sockaddr_len = sizeof(struct sockaddr_in);
         return (struct sockaddr *) ret;
-    } else if (addr->af = AF_INET6) {
+    } else if (addr->af == AF_INET6) {
         struct sockaddr_in6 *ret = malloc(sizeof(struct sockaddr_in6));
         if (ret == NULL) return NULL;
         ret->sin6_family = AF_INET6;
