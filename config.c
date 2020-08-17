@@ -151,3 +151,32 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
     }
     return items;
 }
+
+struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_len) {
+    if (addr->af = AF_INET) {
+        struct sockaddr_in *ret = malloc(sizeof(struct sockaddr_in));
+        if (ret == NULL) return NULL;
+        ret->sin_family = AF_INET;
+        ret->sin_port = addr->port;
+        ret->sin_addr = addr->addr.addr4;
+        *sockaddr_len = sizeof(struct sockaddr_in);
+        return (struct sockaddr *) ret;
+    } else if (addr->af = AF_INET6) {
+        struct sockaddr_in6 *ret = malloc(sizeof(struct sockaddr_in6));
+        if (ret == NULL) return NULL;
+        ret->sin6_family = AF_INET6;
+        ret->sin6_port = addr->port;
+        ret->sin6_addr = addr->addr.addr6;
+        *sockaddr_len = sizeof(struct sockaddr_in6);
+        return (struct sockaddr *) ret;
+    } else {
+        return NULL;
+    }
+}
+
+char *config_addr_to_str(config_addr_t *addr) {
+    char *address_str = malloc(255);
+    inet_ntop(addr->af, &addr->addr,
+        address_str, sizeof(addr->addr));
+    return address_str;
+}

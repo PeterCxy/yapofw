@@ -1,4 +1,5 @@
 #include "config.h"
+#include "tcp.h"
 #include <stdio.h>
 
 void print_usage() {
@@ -13,4 +14,8 @@ int main(int argc, char **argv) {
 
     size_t num = 0;
     config_item_t *config = parse_config(argv[1], &num);
+    if (tcp_init_from_config(config, num) != 0) {
+        printf("Error loading TCP connection configurations\n");
+        return -1;
+    }
 }

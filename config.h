@@ -1,5 +1,6 @@
 #pragma once
 #include <netinet/ip.h>
+#include <sys/socket.h>
 
 typedef struct {
     int af; // AF_INET or AF_INET6
@@ -23,3 +24,6 @@ typedef struct {
 
 // Parse text config from path
 config_item_t *parse_config(const char *path, size_t *num_items);
+// Convert config_addr_t to sockaddr
+struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_len);
+char *config_addr_to_str(config_addr_t *addr);
