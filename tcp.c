@@ -3,6 +3,7 @@
 #include "util.h"
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,8 +60,13 @@ void tcp_handle_accept() {
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
         int client_fd;
-        if ((client_fd = accept4(listen_sockets[i].src_fd, &client_addr, &client_addr_len, SOCK_NONBLOCK)) < 0) {
+        if ((client_fd = accept(listen_sockets[i].src_fd, &client_addr, &client_addr_len)) < 0) {
             printf("[TCP] Error accepting incoming connection: %s\n", strerror(errno));
+            continue;
+        }
+
+        if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0) {
+            printf("[TCP] Error setting O_NONBLOCK on incoming connection: %s\n", strerror(errno));
             continue;
         }
 
