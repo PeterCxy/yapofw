@@ -15,8 +15,10 @@ typedef struct tcp_sock_session_t {
     int outgoing_fd;
     char incoming_outgoing_buf[BUF_SIZE];
     int incoming_outgoing_buf_len;
+    int incoming_outgoing_buf_written;
     char outgoing_incoming_buf[BUF_SIZE];
     int outgoing_incoming_buf_len;
+    int outgoing_incoming_buf_written;
     int incoming_outgoing_shutdown;
     int outgoing_incoming_shutdown;
     struct tcp_sock_session_t *prev_session;

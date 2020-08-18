@@ -116,12 +116,12 @@ int tcp_build_fd_sets(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     // All session socket fds need to be monitored for read
     tcp_sock_session_t *cur_session = sessions;
     while (cur_session != NULL) {
-        if (cur_session->incoming_outgoing_buf_len == 0)
+        if (cur_session->incoming_outgoing_buf_len < BUF_SIZE)
             FD_SET(cur_session->incoming_fd, readfds);
         if (cur_session->outgoing_incoming_buf_len != 0)
             FD_SET(cur_session->incoming_fd, writefds);
 
-        if (cur_session->outgoing_incoming_buf_len == 0)
+        if (cur_session->outgoing_incoming_buf_len < BUF_SIZE)
             FD_SET(cur_session->outgoing_fd, readfds);
         if (cur_session->incoming_outgoing_buf_len != 0 || cur_session->new_connection)
             FD_SET(cur_session->outgoing_fd, writefds);
@@ -200,36 +200,41 @@ void tcp_handle_accept(fd_set *readfds) {
 
 void tcp_do_forward(fd_set *readfds,
         int *src_fd, int *dst_fd, char *buf, int *buf_len,
-        int *shutdown_src_dst) {
-    if (FD_ISSET(*src_fd, readfds) && *buf_len == 0) {
-        ssize_t len = read(*src_fd, buf, BUF_SIZE);
+        int *buf_written, int *shutdown_src_dst) {
+    if (FD_ISSET(*src_fd, readfds) && *buf_len < BUF_SIZE) {
+        // As long as the read buffer is not full, continue reading
+        ssize_t len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
         if (len < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 printf("[TCP] Unable to read from socket: %s\n", strerror(errno));
                 shutdown(*dst_fd, SHUT_WR);
                 *shutdown_src_dst = 1;
-                *buf_len = 0;
             }
         } else if (len == 0) {
             // EOF
             shutdown(*dst_fd, SHUT_WR);
             *shutdown_src_dst = 1;
-            *buf_len = 0;
         } else {
-            *buf_len = len;
+            *buf_len += len;
         }
     }
 
     if (*buf_len != 0) {
-        ssize_t written = write(*dst_fd, buf, *buf_len);
+        ssize_t written = write(*dst_fd, &buf[*buf_written], *buf_len - *buf_written);
         if (written < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 printf("[TCP] Unable to write to socket: %s\n", strerror(errno));
                 shutdown(*src_fd, SHUT_RD);
                 *shutdown_src_dst = 1;
+                *buf_written = 0;
                 *buf_len = 0;
             }
+        } else if (written < *buf_len - *buf_written) {
+            // We have written less than the full length
+            // Record where we have written to and continue next time
+            *buf_written += written;
         } else {
+            *buf_written = 0;
             *buf_len = 0;
         }
     }
@@ -256,11 +261,11 @@ void tcp_handle_forward(fd_set *readfds, fd_set *writefds) {
         // client -> remote
         tcp_do_forward(readfds, &cur_session->incoming_fd, &cur_session->outgoing_fd,
             &cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
-            &cur_session->incoming_outgoing_shutdown);
+            &cur_session->incoming_outgoing_buf_written, &cur_session->incoming_outgoing_shutdown);
         // remote -> client
         tcp_do_forward(readfds, &cur_session->outgoing_fd, &cur_session->incoming_fd,
             &cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
-            &cur_session->outgoing_incoming_shutdown);
+            &cur_session->outgoing_incoming_buf_written, &cur_session->outgoing_incoming_shutdown);
 
         // Destroy the session if both sides are dead
         if (cur_session->incoming_outgoing_shutdown
