@@ -5,6 +5,11 @@
 typedef void (*loop_before_poll_hook_t)();
 typedef void (*loop_after_poll_hook_t)();
 
+typedef struct empty_slot_t {
+    size_t index;
+    struct empty_slot_t *next;
+} empty_slot_t;
+
 #define NUM_HOOKS_MAX 10 // Should be larger than the number of protocols supported
 
 int event_loop_init(size_t max_fds);

@@ -4,6 +4,8 @@
 // List of all fds that we need to poll
 struct pollfd *poll_fds;
 size_t poll_fds_len = 0;
+empty_slot_t *empty_slots;
+size_t empty_slot_num = 0;
 // Reverse map from fd number to the index in poll_fds
 // Make sure the length of this is always equal to or larger than RLIMIT_NOFILE
 // Otherwise it may not be able to house all possible fds
@@ -37,11 +39,14 @@ int event_loop_init(size_t max_fds) {
 void event_loop_add_fd(int fd, short events) {
     // Find an empty slot to add the fd
     size_t slot = 0;
-    // <= is intentional: poll_fds[poll_fds_len] will
-    // always be empty. This is needed when no empty
-    // slots are available before the tail
-    for (slot = 0; slot <= poll_fds_len; slot++) {
-        if (poll_fds[slot].fd == -1) break;
+    if (empty_slots == NULL) {
+        slot = poll_fds_len;
+    } else {
+        slot = empty_slots->index;
+        empty_slot_t *next = empty_slots->next;
+        free(empty_slots);
+        empty_slots = next;
+        empty_slot_num--;
     }
 
     poll_fds[slot].fd = fd;
@@ -61,6 +66,12 @@ void event_loop_remove_fd(int fd) {
     poll_fds[idx].events = 0;
     poll_fds[idx].revents = 0;
     poll_fds_reverse_map[fd] = -1;
+    // Add to the head of empty slots
+    empty_slot_t *new_slot = malloc(sizeof(empty_slot_t));
+    new_slot->index = idx;
+    new_slot->next = empty_slots;
+    empty_slots = new_slot;
+    empty_slot_num++;
 }
 
 void event_loop_set_fd_events(int fd, short events) {
