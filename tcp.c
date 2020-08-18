@@ -111,6 +111,9 @@ void tcp_handle_accept() {
         // Also register for monitoring
         event_loop_add_fd(client_fd, POLLIN | POLLOUT);
         event_loop_add_fd(server_fd, POLLIN | POLLOUT);
+
+        // Free the address object -- it's no longer needed
+        free(address);
     }
 }
 
