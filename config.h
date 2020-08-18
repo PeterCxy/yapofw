@@ -26,4 +26,4 @@ typedef struct {
 config_item_t *parse_config(const char *path, size_t *num_items);
 // Convert config_addr_t to sockaddr
 struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_len);
-char *config_addr_to_str(config_addr_t *addr);
+char *config_addr_to_str(config_addr_t *addr, char *str, size_t len);

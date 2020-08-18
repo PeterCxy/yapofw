@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+char ip_str[255];
+
 tcp_sock_listen_t *listen_sockets = NULL;
 size_t listen_sockets_len = 0;
 
@@ -50,9 +52,6 @@ tcp_sock_session_t *tcp_session_remove(tcp_sock_session_t *session) {
 }
 
 void tcp_handle_accept() {
-    char ip_str[255];
-    bzero(ip_str, 255);
-
     // Loop over all listening sockets to see if we need to accept any new connection
     for (int i = 0; i < listen_sockets_len; i++) {
         if (!((event_loop_get_fd_revents(listen_sockets[i].src_fd)) & POLLIN)) continue;
@@ -67,14 +66,14 @@ void tcp_handle_accept() {
 
         printf("[TCP] New connection from %s:%d on %s:%d, target: %s:%d\n",
             get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
-            config_addr_to_str(&listen_sockets[i].src_addr), listen_sockets[i].src_addr.port,
-            config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port);
+            config_addr_to_str(&listen_sockets[i].src_addr, ip_str, 255), listen_sockets[i].src_addr.port,
+            config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port);
 
         // Create connection to target
         int server_fd = socket(listen_sockets[i].dst_addr.af, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (server_fd < 0) {
             printf("[TCP] Unable to create connection to %s:%d, error: %s\n",
-                config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port,
+                config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port,
                 strerror(errno));
             close(client_fd);
             continue;
@@ -92,7 +91,7 @@ void tcp_handle_accept() {
 
         if (connect(server_fd, address, sockaddr_len) < 0 && errno != EINPROGRESS) {
             printf("[TCP] Unable to connect to %s:%d, error: %s\n",
-                config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port,
+                config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port,
                 strerror(errno));
             close(client_fd);
             close(server_fd);
@@ -173,8 +172,6 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
 }
 
 void tcp_handle_forward() {
-    char ip_str[255];
-
     tcp_sock_session_t *cur_session = sessions;
     while (cur_session != NULL) {
         if (cur_session->new_connection && event_loop_get_fd_revents(cur_session->outgoing_fd) & POLLIN) {
@@ -185,7 +182,7 @@ void tcp_handle_forward() {
             if (err != 0) {
                 printf("[TCP] %s:%d -> %s:%d failed: %s\n",
                     get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
-                    config_addr_to_str(&cur_session->dst_addr), cur_session->dst_addr.port,
+                    config_addr_to_str(&cur_session->dst_addr, ip_str, 255), cur_session->dst_addr.port,
                     strerror(err));
                 shutdown(cur_session->incoming_fd, SHUT_RDWR);
                 shutdown(cur_session->outgoing_fd, SHUT_RDWR);
@@ -249,7 +246,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
             return -1;
         }
 
-        char *address_str = config_addr_to_str(&config[i].src_addr);
+        char *address_str = config_addr_to_str(&config[i].src_addr, ip_str, 255);
         printf("[TCP] Listening on %s:%d\n", address_str, config[i].src_addr.port);
 
         size_t sockaddr_len = 0;
@@ -278,7 +275,6 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
         // Register the fd to monitor for reads
         event_loop_add_fd(fd, POLLIN);
 
-        free(address_str);
         free(address);
     }
     

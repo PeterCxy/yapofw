@@ -189,10 +189,7 @@ struct sockaddr *config_addr_to_sockaddr(config_addr_t *addr, size_t *sockaddr_l
     }
 }
 
-char *config_addr_to_str(config_addr_t *addr) {
-    char *address_str = malloc(255);
-    bzero(address_str, 255);
-    inet_ntop(addr->af, &addr->addr,
-        address_str, sizeof(addr->addr));
-    return address_str;
+char *config_addr_to_str(config_addr_t *addr, char *str, size_t len) {
+    inet_ntop(addr->af, &addr->addr, str, len);
+    return str;
 }
