@@ -1,7 +1,7 @@
 #pragma once
 #include "config.h"
 #include <sys/select.h>
-#define BUF_SIZE 1024
+#define BUF_SIZE 16384 // 16k, same as kernel (by default)
 
 typedef struct {
     int src_fd;
