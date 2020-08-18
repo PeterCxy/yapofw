@@ -119,13 +119,16 @@ void tcp_handle_accept() {
 
 void tcp_do_forward(int *src_fd, int *dst_fd,
         char *buf, int *buf_len,
-        int *buf_written, int *shutdown_src_dst) {
+        int *buf_written, int *shutdown_src_dst,
+        struct sockaddr *src_addr, struct sockaddr *dst_addr) {
     if ((event_loop_get_fd_revents(*src_fd) & POLLIN) && *buf_len < BUF_SIZE) {
         // As long as the read buffer is not full, continue reading
         ssize_t len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
         if (len < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                printf("[TCP] Unable to read from socket: %s\n", strerror(errno));
+                printf("[TCP] Unable to read from %s:%d: %s\n",
+                    get_ip_str(src_addr, ip_str, 255), get_ip_port(src_addr),
+                    strerror(errno));
                 shutdown(*dst_fd, SHUT_WR);
                 *shutdown_src_dst = 1;
             }
@@ -142,7 +145,9 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         ssize_t written = write(*dst_fd, &buf[*buf_written], *buf_len - *buf_written);
         if (written < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                printf("[TCP] Unable to write to socket: %s\n", strerror(errno));
+                printf("[TCP] Unable to write to %s:%d: %s\n",
+                    get_ip_str(dst_addr, ip_str, 255), get_ip_port(dst_addr),
+                    strerror(errno));
                 shutdown(*src_fd, SHUT_RD);
                 *shutdown_src_dst = 1;
                 *buf_written = 0;
@@ -198,11 +203,13 @@ void tcp_handle_forward() {
         // client -> remote
         tcp_do_forward(&cur_session->incoming_fd, &cur_session->outgoing_fd,
             &cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
-            &cur_session->incoming_outgoing_buf_written, &cur_session->incoming_outgoing_shutdown);
+            &cur_session->incoming_outgoing_buf_written, &cur_session->incoming_outgoing_shutdown,
+            &cur_session->client_addr, &cur_session->dst_addr);
         // remote -> client
         tcp_do_forward(&cur_session->outgoing_fd, &cur_session->incoming_fd,
             &cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
-            &cur_session->outgoing_incoming_buf_written, &cur_session->outgoing_incoming_shutdown);
+            &cur_session->outgoing_incoming_buf_written, &cur_session->outgoing_incoming_shutdown,
+            &cur_session->dst_addr, &cur_session->client_addr);
 
         // Destroy the session if both sides are dead
         if (cur_session->incoming_outgoing_shutdown
