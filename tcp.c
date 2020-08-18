@@ -185,7 +185,7 @@ void tcp_handle_forward() {
         if (cur_session->new_connection && event_loop_get_fd_revents(cur_session->outgoing_fd) & POLLIN) {
             // The new connection has been set up (or failed)
             int err = 0;
-            int optlen = sizeof(int);
+            unsigned int optlen = sizeof(int);
             getsockopt(cur_session->outgoing_fd, SOL_SOCKET, SO_ERROR, &err, &optlen);
             if (err != 0) {
                 printf("[TCP] %s:%d -> %s:%d failed: %s\n",
@@ -202,12 +202,12 @@ void tcp_handle_forward() {
 
         // client -> remote
         tcp_do_forward(&cur_session->incoming_fd, &cur_session->outgoing_fd,
-            &cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
+            cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
             &cur_session->incoming_outgoing_buf_written, &cur_session->incoming_outgoing_shutdown,
             &cur_session->client_addr, &cur_session->dst_addr);
         // remote -> client
         tcp_do_forward(&cur_session->outgoing_fd, &cur_session->incoming_fd,
-            &cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
+            cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
             &cur_session->outgoing_incoming_buf_written, &cur_session->outgoing_incoming_shutdown,
             &cur_session->dst_addr, &cur_session->client_addr);
 

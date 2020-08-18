@@ -34,6 +34,8 @@ int event_loop_init(size_t max_fds) {
         poll_fds[i].fd = -1;
         poll_fds_reverse_map[i] = -1;
     }
+
+    return 0;
 }
 
 void event_loop_add_fd(int fd, short events) {
@@ -87,12 +89,12 @@ int event_loop_get_fd_revents(int fd) {
 }
 
 // We assume we never register more than NUM_HOOKS_MAX
-void event_loop_register_hook_before_poll(loop_before_poll_hook_t *hook) {
+void event_loop_register_hook_before_poll(loop_before_poll_hook_t hook) {
     hooks_before_poll[hooks_before_poll_num] = hook;
     hooks_before_poll_num++;
 }
 
-void event_loop_register_hook_after_poll(loop_after_poll_hook_t *hook) {
+void event_loop_register_hook_after_poll(loop_after_poll_hook_t hook) {
     hooks_after_poll[hooks_after_poll_num] = hook;
     hooks_after_poll_num++;
 }

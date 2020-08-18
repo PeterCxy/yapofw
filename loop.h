@@ -24,6 +24,6 @@ void event_loop_clear_fd_events(int fd, short events);
 // Get revent (events returned by poll) for fd
 int event_loop_get_fd_revents(int fd);
 // Hooks
-void event_loop_register_hook_before_poll(loop_before_poll_hook_t *hook);
-void event_loop_register_hook_after_poll(loop_after_poll_hook_t *hook);
+void event_loop_register_hook_before_poll(loop_before_poll_hook_t hook);
+void event_loop_register_hook_after_poll(loop_after_poll_hook_t hook);
 void event_loop();
