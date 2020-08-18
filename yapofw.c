@@ -3,6 +3,7 @@
 #include "tcp.h"
 #include <signal.h>
 #include <stdio.h>
+#include <sys/resource.h>
 
 void print_usage() {
     printf("Usage: yapofw <config_file>\n");
@@ -14,7 +15,12 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    if (event_loop_init(1024) < 0) {
+    // Retrieve RLIMIT_NOFILE for use with event loop
+    struct rlimit nofile_limit;
+    getrlimit(RLIMIT_NOFILE, &nofile_limit);
+
+    // The event loop MUST be initialized with RLIMIT_NOFILE
+    if (event_loop_init(nofile_limit.rlim_cur) < 0) {
         printf("Failed initializing event loop\n");
         return -1;
     }
