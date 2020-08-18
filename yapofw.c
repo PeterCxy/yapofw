@@ -1,14 +1,18 @@
 #include "config.h"
 #include "tcp.h"
+#include <signal.h>
 #include <stdio.h>
 #include <sys/select.h>
 
 void ev_loop() {
+    // We don't want SIGPIPE -- we will handle this as write() errors
+    signal(SIGPIPE, SIG_IGN);
+
     fd_set readfds, writefds, exceptfds;
     int nfds = 0;
     int select_res = 0;
 
-    do {
+    while (1) {
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);
         FD_ZERO(&exceptfds);
@@ -21,13 +25,15 @@ void ev_loop() {
 
         // nfds is the max fd + 1
         nfds++;
+
+        select_res = select(nfds, &readfds, &writefds, &exceptfds, NULL);
         
         // Skip if no fd is available
         if (select_res == 0) continue;
 
         // Call handlers
         tcp_ev_loop_handler(&readfds, &writefds, &exceptfds);
-    } while ((select_res = select(nfds, &readfds, &writefds, &exceptfds, NULL)) >= 0);
+    }
 }
 
 void print_usage() {

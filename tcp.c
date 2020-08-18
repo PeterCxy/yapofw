@@ -7,9 +7,46 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 tcp_sock_listen_t *listen_sockets = NULL;
 size_t listen_sockets_len = 0;
+
+tcp_sock_session_t *sessions = NULL;
+
+void tcp_session_add(tcp_sock_session_t session) {
+    tcp_sock_session_t *session_heap = malloc(sizeof(tcp_sock_session_t));
+    if (session_heap == NULL) return;
+    memcpy(session_heap, &session, sizeof(tcp_sock_session_t));
+    if (sessions == NULL) {
+        sessions = session_heap;
+    } else {
+        tcp_sock_session_t *cur = sessions;
+        while (cur->next_session != NULL) {
+            cur = cur->next_session;
+        }
+        cur->next_session = session_heap;
+        session_heap->prev_session = cur;
+    }
+}
+
+tcp_sock_session_t *tcp_session_remove(tcp_sock_session_t *session) {
+    // Link the previous session to next or NULL (removing this from the chain)
+    if (session->prev_session != NULL) {
+        session->prev_session->next_session = session->next_session;
+    } else {
+        sessions = session->next_session;
+    }
+
+    // Also remove reference from the next session in the chain
+    if (session->next_session != NULL) {
+        session->next_session->prev_session = session->prev_session;
+    }
+
+    tcp_sock_session_t *ret = session->next_session;
+    free(session);
+    return ret;
+}
 
 int tcp_init_from_config(config_item_t *config, size_t config_len) {
     // We always over-allocate to the total number of config lines
@@ -22,9 +59,14 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
         if (config[i].src_proto != TCP || config[i].dst_proto != TCP)
             continue;
         // Create listening socket
-        int fd = socket(config[i].src_addr.af, SOCK_STREAM, 0);
+        int fd = socket(config[i].src_addr.af, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (fd < 0) {
             printf("Cannot create TCP socket\n");
+            return -1;
+        }
+
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
+            printf("setsockopt failed with %s\n", strerror(errno));
             return -1;
         }
 
@@ -71,6 +113,28 @@ int tcp_build_fd_sets(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
             max_fd = listen_sockets[i].src_fd;
     }
 
+    // All session socket fds need to be monitored for read
+    tcp_sock_session_t *cur_session = sessions;
+    while (cur_session != NULL) {
+        if (cur_session->incoming_outgoing_buf_len == 0)
+            FD_SET(cur_session->incoming_fd, readfds);
+        if (cur_session->outgoing_incoming_buf_len != 0)
+            FD_SET(cur_session->incoming_fd, writefds);
+
+        if (cur_session->outgoing_incoming_buf_len == 0)
+            FD_SET(cur_session->outgoing_fd, readfds);
+        if (cur_session->incoming_outgoing_buf_len != 0 || cur_session->new_connection)
+            FD_SET(cur_session->outgoing_fd, writefds);
+
+        if (cur_session->incoming_fd > max_fd)
+            max_fd = cur_session->incoming_fd;
+
+        if (cur_session->outgoing_fd > max_fd)
+            max_fd = cur_session->outgoing_fd;
+
+        cur_session = cur_session->next_session;
+    }
+
     return max_fd;
 }
 
@@ -85,7 +149,7 @@ void tcp_handle_accept(fd_set *readfds) {
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
         int client_fd;
-        if ((client_fd = accept(listen_sockets[i].src_fd, &client_addr, &client_addr_len)) < 0) {
+        if ((client_fd = accept4(listen_sockets[i].src_fd, &client_addr, &client_addr_len, SOCK_NONBLOCK)) < 0) {
             printf("[TCP] Error accepting incoming connection: %s\n", strerror(errno));
             continue;
         }
@@ -94,10 +158,125 @@ void tcp_handle_accept(fd_set *readfds) {
             get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
             config_addr_to_str(&listen_sockets[i].src_addr), listen_sockets[i].src_addr.port,
             config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port);
+
+        // Create connection to target
+        int server_fd = socket(listen_sockets[i].dst_addr.af, SOCK_STREAM | SOCK_NONBLOCK, 0);
+        if (server_fd < 0) {
+            printf("[TCP] Unable to create connection to %s:%d, error: %s\n",
+                config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port,
+                strerror(errno));
+            close(client_fd);
+            continue;
+        }
+
+        size_t sockaddr_len = 0;
+        struct sockaddr *address =
+            config_addr_to_sockaddr(&listen_sockets[i].dst_addr, &sockaddr_len);
+        if (address == NULL) {
+            printf("Cannot properly convert TCP socket address\n");
+            close(server_fd);
+            close(client_fd);
+            continue;
+        }
+
+        if (connect(server_fd, address, sockaddr_len) < 0 && errno != EINPROGRESS) {
+            printf("[TCP] Unable to connect to %s:%d, error: %s\n",
+                config_addr_to_str(&listen_sockets[i].dst_addr), listen_sockets[i].dst_addr.port,
+                strerror(errno));
+            close(client_fd);
+            close(server_fd);
+            continue;
+        }
+
+        // Add the session to session list
+        tcp_sock_session_t session;
+        bzero(&session, sizeof(tcp_sock_session_t));
+        session.incoming_fd = client_fd;
+        session.outgoing_fd = server_fd;
+        session.new_connection = 1;
+        tcp_session_add(session);
+    }
+}
+
+void tcp_do_forward(fd_set *readfds,
+        int *src_fd, int *dst_fd, char *buf, int *buf_len,
+        int *shutdown_src_dst) {
+    if (FD_ISSET(*src_fd, readfds) && *buf_len == 0) {
+        ssize_t len = read(*src_fd, buf, BUF_SIZE);
+        if (len < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                printf("[TCP] Unable to read from socket: %s\n", strerror(errno));
+                shutdown(*dst_fd, SHUT_WR);
+                *shutdown_src_dst = 1;
+                *buf_len = 0;
+            }
+        } else if (len == 0) {
+            // EOF
+            shutdown(*dst_fd, SHUT_WR);
+            *shutdown_src_dst = 1;
+            *buf_len = 0;
+        } else {
+            *buf_len = len;
+        }
+    }
+
+    if (*buf_len != 0) {
+        ssize_t written = write(*dst_fd, buf, *buf_len);
+        if (written < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                printf("[TCP] Unable to write to socket: %s\n", strerror(errno));
+                shutdown(*src_fd, SHUT_RD);
+                *shutdown_src_dst = 1;
+                *buf_len = 0;
+            }
+        } else {
+            *buf_len = 0;
+        }
+    }
+}
+
+void tcp_handle_forward(fd_set *readfds, fd_set *writefds) {
+    tcp_sock_session_t *cur_session = sessions;
+    while (cur_session != NULL) {
+        if (cur_session->new_connection && FD_ISSET(cur_session->outgoing_fd, writefds)) {
+            // The new connection has been set up (or failed)
+            int err = 0;
+            int optlen = sizeof(int);
+            getsockopt(cur_session->outgoing_fd, SOL_SOCKET, SO_ERROR, &err, &optlen);
+            if (err != 0) {
+                printf("[TCP] %s\n", strerror(err));
+                shutdown(cur_session->incoming_fd, SHUT_RDWR);
+                shutdown(cur_session->outgoing_fd, SHUT_RDWR);
+                cur_session->incoming_outgoing_shutdown = 1;
+                cur_session->outgoing_incoming_shutdown = 1;
+            }
+            cur_session->new_connection = 0;
+        }
+
+        // client -> remote
+        tcp_do_forward(readfds, &cur_session->incoming_fd, &cur_session->outgoing_fd,
+            &cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
+            &cur_session->incoming_outgoing_shutdown);
+        // remote -> client
+        tcp_do_forward(readfds, &cur_session->outgoing_fd, &cur_session->incoming_fd,
+            &cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
+            &cur_session->outgoing_incoming_shutdown);
+
+        // Destroy the session if both sides are dead
+        if (cur_session->incoming_outgoing_shutdown
+                    && cur_session->outgoing_incoming_shutdown) {
+            close(cur_session->incoming_fd);
+            close(cur_session->outgoing_fd);
+            cur_session = tcp_session_remove(cur_session);
+        } else {
+            cur_session = cur_session->next_session;
+        }
     }
 }
 
 void tcp_ev_loop_handler(fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
     // Handle new connections from the listening socket
     tcp_handle_accept(readfds);
+    // Handle forwarding in single tcp connections
+    tcp_handle_forward(readfds, writefds);
 }
