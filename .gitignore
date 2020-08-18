@@ -1,3 +1,4 @@
 yapofw
 *.o
 test.conf
+.depend
