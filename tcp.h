@@ -20,6 +20,8 @@ typedef struct tcp_sock_session_t {
     int outgoing_incoming_buf_written;
     int incoming_outgoing_shutdown;
     int outgoing_incoming_shutdown;
+    struct sockaddr client_addr;
+    config_addr_t dst_addr;
     struct tcp_sock_session_t *prev_session;
     struct tcp_sock_session_t *next_session;
 } tcp_sock_session_t;
