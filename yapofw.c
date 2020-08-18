@@ -1,40 +1,8 @@
 #include "config.h"
+#include "loop.h"
 #include "tcp.h"
 #include <signal.h>
 #include <stdio.h>
-#include <sys/select.h>
-
-void ev_loop() {
-    // We don't want SIGPIPE -- we will handle this as write() errors
-    signal(SIGPIPE, SIG_IGN);
-
-    fd_set readfds, writefds, exceptfds;
-    int nfds = 0;
-    int select_res = 0;
-
-    while (1) {
-        FD_ZERO(&readfds);
-        FD_ZERO(&writefds);
-        FD_ZERO(&exceptfds);
-
-        // Build fd sets
-        int nfds_tcp = tcp_build_fd_sets(&readfds, &writefds, &exceptfds);
-        if (nfds_tcp > nfds) {
-            nfds = nfds_tcp;
-        }
-
-        // nfds is the max fd + 1
-        nfds++;
-
-        select_res = select(nfds, &readfds, &writefds, &exceptfds, NULL);
-        
-        // Skip if no fd is available
-        if (select_res == 0) continue;
-
-        // Call handlers
-        tcp_ev_loop_handler(&readfds, &writefds, &exceptfds);
-    }
-}
 
 void print_usage() {
     printf("Usage: yapofw <config_file>\n");
@@ -46,6 +14,11 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    if (event_loop_init(1024) < 0) {
+        printf("Failed initializing event loop\n");
+        return -1;
+    }
+
     size_t num = 0;
     config_item_t *config = parse_config(argv[1], &num);
     if (tcp_init_from_config(config, num) != 0) {
@@ -53,5 +26,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    ev_loop();
+    // We don't want SIGPIPE -- we will handle this as write() errors
+    signal(SIGPIPE, SIG_IGN);
+    event_loop();
 }
