@@ -220,6 +220,9 @@ void tcp_handle_forward() {
         // Destroy the session if both sides are dead
         if (cur_session->incoming_outgoing_shutdown
                     && cur_session->outgoing_incoming_shutdown) {
+            printf("[TCP] Tearing down connection %s:%d -> %s:%d\n",
+                get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
+                get_ip_str(&cur_session->dst_addr, ip_str, 255), get_ip_port(&cur_session->dst_addr));
             close(cur_session->incoming_fd);
             close(cur_session->outgoing_fd);
             // Also unregister from ev loop
