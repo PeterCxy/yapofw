@@ -56,6 +56,7 @@ void event_loop_add_fd(int fd, short events) {
 
 void event_loop_remove_fd(int fd) {
     int idx = poll_fds_reverse_map[fd];
+    if (idx == -1 || poll_fds[idx].fd == -1) return; // Already removed
     poll_fds[idx].fd = -1;
     poll_fds[idx].events = 0;
     poll_fds[idx].revents = 0;
