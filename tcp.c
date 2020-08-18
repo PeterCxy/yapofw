@@ -104,7 +104,7 @@ void tcp_handle_accept() {
         session.incoming_fd = client_fd;
         session.outgoing_fd = server_fd;
         session.client_addr = client_addr;
-        session.dst_addr = listen_sockets[i].dst_addr;
+        session.dst_addr = *address;
         session.new_connection = 1;
         tcp_session_add(session);
 
@@ -182,7 +182,7 @@ void tcp_handle_forward() {
             if (err != 0) {
                 printf("[TCP] %s:%d -> %s:%d failed: %s\n",
                     get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
-                    config_addr_to_str(&cur_session->dst_addr, ip_str, 255), cur_session->dst_addr.port,
+                    get_ip_str(&cur_session->dst_addr, ip_str, 255), get_ip_port(&cur_session->dst_addr),
                     strerror(err));
                 shutdown(cur_session->incoming_fd, SHUT_RDWR);
                 shutdown(cur_session->outgoing_fd, SHUT_RDWR);
