@@ -1,5 +1,6 @@
 #include "tcp.h"
 #include "loop.h"
+#include "stats.h"
 #include "util.h"
 #include <arpa/inet.h>
 #include <errno.h>
@@ -107,6 +108,7 @@ void tcp_handle_accept() {
         // Add the session to session list
         tcp_sock_session_t session;
         bzero(&session, sizeof(tcp_sock_session_t));
+        session.cfg_idx = listen_sockets[i].cfg_idx;
         session.incoming_fd = client_fd;
         session.outgoing_fd = server_fd;
         session.client_addr = client_addr;
@@ -126,7 +128,8 @@ void tcp_handle_accept() {
 void tcp_do_forward(int *src_fd, int *dst_fd,
         char *buf, int *buf_len,
         int *buf_written, int *shutdown_src_dst,
-        struct sockaddr *src_addr, struct sockaddr *dst_addr) {
+        struct sockaddr *src_addr, struct sockaddr *dst_addr,
+        size_t stats_cfg_idx, int stats_direction) {
     if ((event_loop_get_fd_revents(*src_fd) & POLLIN) && *buf_len < BUF_SIZE) {
         // As long as the read buffer is not full, continue reading
         ssize_t len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
@@ -144,6 +147,9 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
             *shutdown_src_dst = 1;
         } else {
             *buf_len += len;
+            // Hook into the stats module
+            // Remember to call this whenever we receive any data
+            stats_add_bytes(stats_cfg_idx, len, stats_direction);
         }
     }
 
@@ -210,12 +216,14 @@ void tcp_handle_forward() {
         tcp_do_forward(&cur_session->incoming_fd, &cur_session->outgoing_fd,
             cur_session->incoming_outgoing_buf, &cur_session->incoming_outgoing_buf_len,
             &cur_session->incoming_outgoing_buf_written, &cur_session->incoming_outgoing_shutdown,
-            &cur_session->client_addr, &cur_session->dst_addr);
+            &cur_session->client_addr, &cur_session->dst_addr,
+            cur_session->cfg_idx, STATS_DIRECTION_SRC_DST);
         // remote -> client
         tcp_do_forward(&cur_session->outgoing_fd, &cur_session->incoming_fd,
             cur_session->outgoing_incoming_buf, &cur_session->outgoing_incoming_buf_len,
             &cur_session->outgoing_incoming_buf_written, &cur_session->outgoing_incoming_shutdown,
-            &cur_session->dst_addr, &cur_session->client_addr);
+            &cur_session->dst_addr, &cur_session->client_addr,
+            cur_session->cfg_idx, STATS_DIRECTION_DST_SRC);
 
         // Destroy the session if both sides are dead
         if (cur_session->incoming_outgoing_shutdown
@@ -286,6 +294,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
             return -1;
         }
 
+        listen_sockets[listen_sockets_len].cfg_idx = i;
         listen_sockets[listen_sockets_len].src_fd = fd;
         listen_sockets[listen_sockets_len].src_addr = config[i].src_addr;
         listen_sockets[listen_sockets_len].dst_addr = config[i].dst_addr;

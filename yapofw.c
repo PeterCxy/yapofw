@@ -1,5 +1,6 @@
 #include "config.h"
 #include "loop.h"
+#include "stats.h"
 #include "tcp.h"
 #include <signal.h>
 #include <stdio.h>
@@ -27,6 +28,12 @@ int main(int argc, char **argv) {
 
     size_t num = 0;
     config_item_t *config = parse_config(argv[1], &num);
+
+    if (stats_init_from_config(config, num) != 0) {
+        printf("Error initializing the stats module\n");
+        return -1;
+    }
+
     if (tcp_init_from_config(config, num) != 0) {
         printf("Error loading TCP connection configurations\n");
         return -1;

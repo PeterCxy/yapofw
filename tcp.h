@@ -3,12 +3,14 @@
 #define BUF_SIZE 16384 // 16k, same as kernel (by default)
 
 typedef struct {
+    size_t cfg_idx;
     int src_fd;
     config_addr_t src_addr;
     config_addr_t dst_addr;
 } tcp_sock_listen_t;
 
 typedef struct tcp_sock_session_t {
+    size_t cfg_idx;
     int new_connection;
     int incoming_fd;
     int outgoing_fd;
