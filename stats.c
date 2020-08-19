@@ -19,8 +19,8 @@ void stats_serialize() {
     int total_len = 0;
     for (int i = 0; i < stats_len; i++) {
         buffers[i] = malloc(255);
-        int len = snprintf(buffers[i], 255, "key %s trans %llu recv %llu\n",
-            stats[i].listen_addr_key, stats[i].bytes_transmitted, stats[i].bytes_received);
+        int len = snprintf(buffers[i], 255, "listen %s proto %s trans %llu recv %llu\n",
+            stats[i].listen_addr_key, stats[i].type_key, stats[i].bytes_transmitted, stats[i].bytes_received);
         buf_len[i] = len;
         total_len += len;
     }
@@ -70,6 +70,12 @@ int stats_init_from_config(config_item_t *config, size_t config_len, const char 
     for (int i = 0; i < config_len; i++) {
         config_addr_to_str(&config[i].src_addr, ip_str, 255);
         sprintf(stats[i].listen_addr_key, "%s:%d", ip_str, config[i].src_addr.port);
+
+        if (config[i].src_proto == TCP) {
+            stats[i].type_key = "TCP";
+        } else if (config[i].src_proto == UDP) {
+            stats[i].type_key = "UDP";
+        }
     }
 
     last_save_time = time(NULL);

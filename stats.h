@@ -6,6 +6,7 @@
 
 typedef struct {
     char listen_addr_key[255];
+    char *type_key; // "tcp" or "udp"
     unsigned long long bytes_transmitted;
     unsigned long long bytes_received;
 } yapofw_stats_t;
