@@ -19,4 +19,4 @@ clean:
 	rm -f ./.depend
 
 run: $(OUT)
-	-./$(OUT) $(conf)
+	-./$(OUT) $(conf) $(stats)

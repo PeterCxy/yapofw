@@ -2,3 +2,4 @@ yapofw
 *.o
 test.conf
 .depend
+stats.txt

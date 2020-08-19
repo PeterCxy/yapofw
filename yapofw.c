@@ -7,11 +7,11 @@
 #include <sys/resource.h>
 
 void print_usage() {
-    printf("Usage: yapofw <config_file>\n");
+    printf("Usage: yapofw <config_file> [stats_persist_file]\n");
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
+    if (argc < 2) {
         print_usage();
         return -1;
     }
@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     size_t num = 0;
     config_item_t *config = parse_config(argv[1], &num);
 
-    if (stats_init_from_config(config, num) != 0) {
+    if (argc >= 3 && stats_init_from_config(config, num, argv[2]) != 0) {
         printf("Error initializing the stats module\n");
         return -1;
     }
