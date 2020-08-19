@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -107,7 +106,7 @@ void tcp_handle_accept() {
 
         // Add the session to session list
         tcp_sock_session_t session;
-        bzero(&session, sizeof(tcp_sock_session_t));
+        memset(&session, 0, sizeof(tcp_sock_session_t));
         session.cfg_idx = listen_sockets[i].cfg_idx;
         session.incoming_fd = client_fd;
         session.outgoing_fd = server_fd;
@@ -257,7 +256,7 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
     // it should be fine as we don't expect too many lines of configuration
     listen_sockets = malloc(sizeof(tcp_sock_listen_t) * config_len);
     if (listen_sockets == NULL) return -1;
-    bzero(listen_sockets, sizeof(tcp_sock_listen_t) * config_len);
+    memset(listen_sockets, 0, sizeof(tcp_sock_listen_t) * config_len);
 
     for (size_t i = 0; i < config_len; i++) {
         if (config[i].src_proto != TCP || config[i].dst_proto != TCP)

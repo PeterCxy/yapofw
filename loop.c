@@ -1,5 +1,5 @@
 #include "loop.h"
-#include <strings.h>
+#include <string.h>
 
 // List of all fds that we need to poll
 struct pollfd *poll_fds;
@@ -30,7 +30,7 @@ int event_loop_init(size_t max_fds) {
         return -1;
     }
 
-    bzero(poll_fds, max_fds * sizeof(struct pollfd));
+    memset(poll_fds, 0, max_fds * sizeof(struct pollfd));
 
     for (int i = 0; i < max_fds; i++) {
         poll_fds[i].fd = -1;
