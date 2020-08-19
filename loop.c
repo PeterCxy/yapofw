@@ -84,8 +84,8 @@ void event_loop_clear_fd_events(int fd, short events) {
     poll_fds[poll_fds_reverse_map[fd]].events &= ~events;
 }
 
-int event_loop_get_fd_revents(int fd) {
-    return poll_fds[poll_fds_reverse_map[fd]].revents;
+int event_loop_fd_revent_is_set(int fd, short event) {
+    return poll_fds[poll_fds_reverse_map[fd]].revents & event;
 }
 
 // We assume we never register more than NUM_HOOKS_MAX

@@ -56,7 +56,7 @@ tcp_sock_session_t *tcp_session_remove(tcp_sock_session_t *session) {
 void tcp_handle_accept() {
     // Loop over all listening sockets to see if we need to accept any new connection
     for (int i = 0; i < listen_sockets_len; i++) {
-        if (!((event_loop_get_fd_revents(listen_sockets[i].src_fd)) & POLLIN)) continue;
+        if (!event_loop_fd_revent_is_set(listen_sockets[i].src_fd, POLLIN)) continue;
         // New connection!
         struct sockaddr client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
@@ -130,7 +130,7 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         int *buf_written, int *shutdown_src_dst,
         struct sockaddr *src_addr, struct sockaddr *dst_addr,
         size_t stats_cfg_idx, int stats_direction) {
-    if ((event_loop_get_fd_revents(*src_fd) & POLLIN) && *buf_len < BUF_SIZE) {
+    if (event_loop_fd_revent_is_set(*src_fd, POLLIN) && *buf_len < BUF_SIZE) {
         // As long as the read buffer is not full, continue reading
         ssize_t len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
         if (len < 0) {
@@ -194,7 +194,8 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
 void tcp_handle_forward() {
     tcp_sock_session_t *cur_session = sessions;
     while (cur_session != NULL) {
-        if (cur_session->new_connection && event_loop_get_fd_revents(cur_session->outgoing_fd) & POLLIN) {
+        if (cur_session->new_connection
+                && event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLIN)) {
             // The new connection has been set up (or failed)
             int err = 0;
             unsigned int optlen = sizeof(int);
