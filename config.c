@@ -139,6 +139,7 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
     // Count the number of lines first
     *num_items = 0;
     while ((read = getline(&line, &len, fp)) != -1) {
+        if (len > 0 && line[0] == '#') continue; // Comments
         (*num_items)++;
     }
 
@@ -148,6 +149,7 @@ config_item_t *parse_config(const char *path, size_t *num_items) {
     if (items == NULL) return NULL;
     size_t i = 0;
     while ((read = getline(&line, &len, fp)) != -1) {
+        if (len > 0 && line[0] == '#') continue; // Comments
         config_item_t *item = parse_line(line);
         if (item == NULL) {
             printf("Invalid config\n");
