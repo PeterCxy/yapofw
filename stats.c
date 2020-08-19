@@ -47,6 +47,27 @@ void stats_serialize() {
     free(out_buffer);
 }
 
+void stats_deserialize() {
+    FILE *fp = fopen(stats_file_name, "r");
+    if (fp == NULL) return;
+
+    yapofw_stats_t tmp_stat;
+    tmp_stat.type_key = malloc(255); // For reading, will be freed in this function
+    while (fscanf(fp, "listen %s proto %s trans %llu recv %llu\n",
+        tmp_stat.listen_addr_key, tmp_stat.type_key, &tmp_stat.bytes_transmitted,
+        &tmp_stat.bytes_received) != EOF) {
+        for (int i = 0; i < stats_len; i++) {
+            if (strcmp(tmp_stat.listen_addr_key, stats[i].listen_addr_key) != 0) continue;
+            if (strcmp(tmp_stat.type_key, stats[i].type_key) != 0) continue;
+            stats[i].bytes_transmitted = tmp_stat.bytes_transmitted;
+            stats[i].bytes_received = tmp_stat.bytes_received;
+        }
+    }
+
+    fclose(fp);
+    free(tmp_stat.type_key);
+}
+
 void stats_after_poll() {
     // We always save after a poll because the stats will only ever change
     // when something happens (i.e. poll() returns)
@@ -77,6 +98,8 @@ int stats_init_from_config(config_item_t *config, size_t config_len, const char 
             stats[i].type_key = "UDP";
         }
     }
+
+    stats_deserialize();
 
     last_save_time = time(NULL);
     
