@@ -6,8 +6,8 @@
 
 typedef struct {
     char listen_addr_key[255];
-    unsigned long bytes_transmitted;
-    unsigned long bytes_received;
+    unsigned long long bytes_transmitted;
+    unsigned long long bytes_received;
 } yapofw_stats_t;
 
 int stats_init_from_config(config_item_t *config, size_t config_len, const char *persist_file);

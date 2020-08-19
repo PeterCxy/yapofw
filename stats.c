@@ -19,7 +19,7 @@ void stats_serialize() {
     int total_len = 0;
     for (int i = 0; i < stats_len; i++) {
         buffers[i] = malloc(255);
-        int len = snprintf(buffers[i], 255, "key %s trans %lu recv %lu\n",
+        int len = snprintf(buffers[i], 255, "key %s trans %llu recv %llu\n",
             stats[i].listen_addr_key, stats[i].bytes_transmitted, stats[i].bytes_received);
         buf_len[i] = len;
         total_len += len;
