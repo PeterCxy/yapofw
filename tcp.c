@@ -25,12 +25,10 @@ void tcp_session_add(tcp_sock_session_t session) {
     if (sessions == NULL) {
         sessions = session_heap;
     } else {
-        tcp_sock_session_t *cur = sessions;
-        while (cur->next_session != NULL) {
-            cur = cur->next_session;
-        }
-        cur->next_session = session_heap;
-        session_heap->prev_session = cur;
+        // Add the session to the head because it's faster
+        session_heap->next_session = sessions;
+        sessions->prev_session = session_heap;
+        sessions = session_heap;
     }
 }
 
