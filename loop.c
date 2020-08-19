@@ -9,6 +9,8 @@ size_t empty_slot_num = 0;
 // Reverse map from fd number to the index in poll_fds
 // Make sure the length of this is always equal to or larger than RLIMIT_NOFILE
 // Otherwise it may not be able to house all possible fds
+// We use a large reverse map with a dense poll_fds array because a sparse and large
+// poll_fds array causes poll() to be much slower than necessary.
 size_t *poll_fds_reverse_map;
 // Hooks
 loop_before_poll_hook_t hooks_before_poll[NUM_HOOKS_MAX];
