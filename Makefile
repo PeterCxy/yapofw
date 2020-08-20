@@ -3,7 +3,8 @@ OBJFILES = $(CFILES:.c=.o)
 OUT      = yapofw
 
 CC      = gcc
-CFLAGS  = -Wall
+CFLAGS  = -flto -Wall
+LDFLAGS = -flto
 
 .depend: $(CFILES)
 	rm -f ./.depend
