@@ -2,6 +2,7 @@
 #include "loop.h"
 #include "stats.h"
 #include "tcp.h"
+#include "udp.h"
 #include <signal.h>
 #include <stdio.h>
 #include <sys/resource.h>
@@ -36,6 +37,11 @@ int main(int argc, char **argv) {
 
     if (tcp_init_from_config(config, num) != 0) {
         printf("Error loading TCP connection configurations\n");
+        return -1;
+    }
+
+    if (udp_init_from_config(config, num) != 0) {
+        printf("Error loading UDP configurations\n");
         return -1;
     }
 
