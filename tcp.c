@@ -127,10 +127,11 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         int *buf_written, int *shutdown_src_dst,
         struct sockaddr *src_addr, struct sockaddr *dst_addr,
         size_t stats_cfg_idx, int stats_direction) {
+    ssize_t read_len = 0;
     if (event_loop_fd_revent_is_set(*src_fd, POLLIN) && *buf_len < BUF_SIZE) {
         // As long as the read buffer is not full, continue reading
-        ssize_t len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
-        if (len < 0) {
+        read_len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
+        if (read_len < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 printf("[TCP] Unable to read from %s:%d: %s\n",
                     get_ip_str(src_addr, ip_str, 255), get_ip_port(src_addr),
@@ -138,19 +139,22 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
                 shutdown(*dst_fd, SHUT_WR);
                 *shutdown_src_dst = 1;
             }
-        } else if (len == 0) {
+        } else if (read_len == 0) {
             // EOF
             shutdown(*dst_fd, SHUT_WR);
             *shutdown_src_dst = 1;
         } else {
-            *buf_len += len;
+            *buf_len += read_len;
             // Hook into the stats module
             // Remember to call this whenever we receive any data
-            stats_add_bytes(stats_cfg_idx, len, stats_direction);
+            stats_add_bytes(stats_cfg_idx, read_len, stats_direction);
         }
     }
 
-    if (*buf_len != 0) {
+    // Try to write immediately if we have read anything from the src fd
+    // Otherwise, only try to write when the dst is reported as writable
+    // (we will set flags to poll for dst being writable at the end of this function)
+    if (read_len != 0 || (*buf_len != 0 && event_loop_fd_revent_is_set(*dst_fd, POLLOUT))) {
         ssize_t written = write(*dst_fd, &buf[*buf_written], *buf_len - *buf_written);
         if (written < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
