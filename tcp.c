@@ -11,12 +11,12 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-char ip_str[255];
+static char ip_str[255];
 
-tcp_sock_listen_t *listen_sockets = NULL;
-size_t listen_sockets_len = 0;
+static tcp_sock_listen_t *listen_sockets = NULL;
+static size_t listen_sockets_len = 0;
 
-tcp_sock_session_t *sessions = NULL;
+static tcp_sock_session_t *sessions = NULL;
 
 void tcp_session_add(tcp_sock_session_t session) {
     tcp_sock_session_t *session_heap = malloc(sizeof(tcp_sock_session_t));
