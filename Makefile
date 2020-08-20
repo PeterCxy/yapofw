@@ -14,10 +14,14 @@ include .depend
 
 $(OUT): $(OBJFILES)
 
-.PHONY: clean run
+.PHONY: clean run release
 clean:
 	rm -f $(OBJFILES) $(OUT)
 	rm -f ./.depend
 
 run: $(OUT)
 	-./$(OUT) $(conf) $(stats)
+
+release: CFLAGS += -O3
+release: LDFLAGS += -O3
+release: $(OUT)
