@@ -109,7 +109,6 @@ void event_loop() {
 
         int poll_res = poll(poll_fds, poll_fds_len, 60 * 1000); // timeout: 1 minute
 
-        if (poll_res == 0) continue;
         if (poll_res < 0) break; // Error
 
         for (int i = 0; i < hooks_after_poll_num; i++) {
