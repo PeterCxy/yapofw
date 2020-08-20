@@ -11,7 +11,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+// Temporary buffers for formatting strings
 static char ip_str[255];
+static char ip_str_1[255];
+static char ip_str_2[255];
 
 static tcp_sock_listen_t *listen_sockets = NULL;
 static size_t listen_sockets_len = 0;
@@ -70,8 +73,8 @@ void tcp_handle_accept() {
 
         printf("[TCP] New connection from %s:%d on %s:%d, target: %s:%d\n",
             get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
-            config_addr_to_str(&listen_sockets[i].src_addr, ip_str, 255), listen_sockets[i].src_addr.port,
-            config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port);
+            config_addr_to_str(&listen_sockets[i].src_addr, ip_str_1, 255), listen_sockets[i].src_addr.port,
+            config_addr_to_str(&listen_sockets[i].dst_addr, ip_str_2, 255), listen_sockets[i].dst_addr.port);
 
         // Create connection to target
         int server_fd = socket(listen_sockets[i].dst_addr.af, SOCK_STREAM | SOCK_NONBLOCK, 0);
@@ -204,7 +207,7 @@ void tcp_handle_forward() {
             if (err != 0) {
                 printf("[TCP] %s:%d -> %s:%d failed: %s\n",
                     get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
-                    get_ip_str(&cur_session->dst_addr, ip_str, 255), get_ip_port(&cur_session->dst_addr),
+                    get_ip_str(&cur_session->dst_addr, ip_str_1, 255), get_ip_port(&cur_session->dst_addr),
                     strerror(err));
                 shutdown(cur_session->incoming_fd, SHUT_RDWR);
                 shutdown(cur_session->outgoing_fd, SHUT_RDWR);
@@ -232,7 +235,7 @@ void tcp_handle_forward() {
                     && cur_session->outgoing_incoming_shutdown) {
             printf("[TCP] Tearing down connection %s:%d -> %s:%d\n",
                 get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
-                get_ip_str(&cur_session->dst_addr, ip_str, 255), get_ip_port(&cur_session->dst_addr));
+                get_ip_str(&cur_session->dst_addr, ip_str_1, 255), get_ip_port(&cur_session->dst_addr));
             close(cur_session->incoming_fd);
             close(cur_session->outgoing_fd);
             // Also unregister from ev loop
