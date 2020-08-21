@@ -157,7 +157,7 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
     // Try to write immediately if we have read anything from the src fd
     // Otherwise, only try to write when the dst is reported as writable
     // (we will set flags to poll for dst being writable at the end of this function)
-    if (read_len != 0 || (*buf_len != 0 && event_loop_fd_revent_is_set(*dst_fd, POLLOUT))) {
+    if (read_len > 0 || (*buf_len > 0 && event_loop_fd_revent_is_set(*dst_fd, POLLOUT))) {
         ssize_t written = write(*dst_fd, &buf[*buf_written], *buf_len - *buf_written);
         if (written < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
