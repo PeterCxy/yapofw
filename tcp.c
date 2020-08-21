@@ -230,6 +230,12 @@ void tcp_handle_forward() {
             &cur_session->dst_addr, &cur_session->client_addr,
             cur_session->cfg_idx, STATS_DIRECTION_DST_SRC);
 
+        if (event_loop_fd_revent_is_set(cur_session->incoming_fd, POLLNVAL)
+                || event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLNVAL)) {
+            cur_session->incoming_outgoing_shutdown = 1;
+            cur_session->outgoing_incoming_shutdown = 1;
+        }
+
         // Destroy the session if both sides are dead
         if (cur_session->incoming_outgoing_shutdown
                     && cur_session->outgoing_incoming_shutdown) {
