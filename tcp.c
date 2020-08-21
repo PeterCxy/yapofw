@@ -132,7 +132,6 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         size_t stats_cfg_idx, int stats_direction) {
     ssize_t read_len = 0;
     if (*buf_len < BUF_SIZE && (event_loop_fd_revent_is_set(*src_fd, POLLIN)
-            || event_loop_fd_revent_is_set(*src_fd, POLLHUP)
             || event_loop_fd_revent_is_set(*src_fd, POLLERR))) {
         // As long as the read buffer is not full, continue reading
         // we read even on error, and handle the errors when read() fails
@@ -248,7 +247,9 @@ void tcp_handle_forward() {
             cur_session->cfg_idx, STATS_DIRECTION_DST_SRC);
 
         if (event_loop_fd_revent_is_set(cur_session->incoming_fd, POLLNVAL)
-                || event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLNVAL)) {
+                || event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLNVAL)
+                || event_loop_fd_revent_is_set(cur_session->incoming_fd, POLLHUP)
+                || event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLHUP)) {
             cur_session->incoming_outgoing_shutdown = 1;
             cur_session->outgoing_incoming_shutdown = 1;
         }
