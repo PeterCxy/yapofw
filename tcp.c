@@ -131,8 +131,7 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         struct sockaddr *src_addr, struct sockaddr *dst_addr,
         size_t stats_cfg_idx, int stats_direction) {
     ssize_t read_len = 0;
-    if (*buf_len < BUF_SIZE && (event_loop_fd_revent_is_set(*src_fd, POLLIN)
-            || event_loop_fd_revent_is_set(*src_fd, POLLERR))) {
+    if (*buf_len < BUF_SIZE && (event_loop_fd_revent_is_set(*src_fd, POLLIN))) {
         // As long as the read buffer is not full, continue reading
         // we read even on error, and handle the errors when read() fails
         read_len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
@@ -152,6 +151,11 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
             // Remember to call this whenever we receive any data
             stats_add_bytes(stats_cfg_idx, read_len, stats_direction);
         }
+    } else if (event_loop_fd_revent_is_set(*src_fd, POLLERR)) {
+        // The source fd is dead, but does not have POLLIN set, somehow
+        printf("[TCP] Source socket %s:%d died\n",
+            get_ip_str(src_addr, ip_str, 255), get_ip_port(src_addr));
+        *shutdown_src_dst = 1;
     }
 
     // Try to write immediately if we have read anything from the src fd
@@ -177,6 +181,15 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
             *buf_written = 0;
             *buf_len = 0;
         }
+    } else if (event_loop_fd_revent_is_set(*dst_fd, POLLERR)) {
+        // The destination fd is dead (but without POLLOUT set, somehow)
+        printf("[TCP] Target socket %s:%d died\n",
+            get_ip_str(dst_addr, ip_str, 255), get_ip_port(dst_addr));
+        shutdown(*src_fd, SHUT_RD);
+        *shutdown_src_dst = 1;
+        *buf_written = 0;
+        *buf_len = 0;
+        read_len = 0;
     }
 
     if (*shutdown_src_dst) {
