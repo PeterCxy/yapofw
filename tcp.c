@@ -139,12 +139,10 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
                 printf("[TCP] Unable to read from %s:%d: %s\n",
                     get_ip_str(src_addr, ip_str, 255), get_ip_port(src_addr),
                     strerror(errno));
-                shutdown(*dst_fd, SHUT_WR);
                 *shutdown_src_dst = 1;
             }
         } else if (read_len == 0) {
             // EOF
-            shutdown(*dst_fd, SHUT_WR);
             *shutdown_src_dst = 1;
         } else {
             *buf_len += read_len;
@@ -179,19 +177,35 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         }
     }
 
-    if (*buf_len == BUF_SIZE) {
-        // Stop polling for reads from src, but keep polling for writes to dst
+    if (*shutdown_src_dst) {
+        if (*buf_len == 0) {
+            // Only shut down the write side when all data have been written
+            // (or errored)
+            shutdown(*dst_fd, SHUT_WR);
+            event_loop_clear_fd_events(*dst_fd, POLLOUT);
+        } else {
+            // We may still have something to write to dst
+            event_loop_set_fd_events(*dst_fd, POLLOUT);
+        }
+        // Always stop reading from src
+        // (if we can't write to dst any more, reading won't do anything;
+        //  if we can't read from src any more, then we should not read anyway)
         event_loop_clear_fd_events(*src_fd, POLLIN);
-        event_loop_set_fd_events(*dst_fd, POLLOUT);
-    } else if (*buf_len == 0) {
-        // Stop polling for writes to dst, but keep polling reads from src
-        event_loop_clear_fd_events(*dst_fd, POLLOUT);
-        event_loop_set_fd_events(*src_fd, POLLIN);
     } else {
-        // When we have some buffer and not full, make sure we poll
-        // for both reads from src and writes to dst
-        event_loop_set_fd_events(*src_fd, POLLIN);
-        event_loop_set_fd_events(*dst_fd, POLLOUT);
+        if (*buf_len == BUF_SIZE) {
+            // Stop polling for reads from src, but keep polling for writes to dst
+            event_loop_clear_fd_events(*src_fd, POLLIN);
+            event_loop_set_fd_events(*dst_fd, POLLOUT);
+        } else if (*buf_len == 0) {
+            // Stop polling for writes to dst, but keep polling reads from src
+            event_loop_clear_fd_events(*dst_fd, POLLOUT);
+            event_loop_set_fd_events(*src_fd, POLLIN);
+        } else {
+            // When we have some buffer and not full, make sure we poll
+            // for both reads from src and writes to dst
+            event_loop_set_fd_events(*src_fd, POLLIN);
+            event_loop_set_fd_events(*dst_fd, POLLOUT);
+        }
     }
 }
 
