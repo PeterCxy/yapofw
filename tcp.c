@@ -131,8 +131,11 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
         struct sockaddr *src_addr, struct sockaddr *dst_addr,
         size_t stats_cfg_idx, int stats_direction) {
     ssize_t read_len = 0;
-    if (event_loop_fd_revent_is_set(*src_fd, POLLIN) && *buf_len < BUF_SIZE) {
+    if (*buf_len < BUF_SIZE && (event_loop_fd_revent_is_set(*src_fd, POLLIN)
+            || event_loop_fd_revent_is_set(*src_fd, POLLHUP)
+            || event_loop_fd_revent_is_set(*src_fd, POLLERR))) {
         // As long as the read buffer is not full, continue reading
+        // we read even on error, and handle the errors when read() fails
         read_len = read(*src_fd, &buf[*buf_len], BUF_SIZE - *buf_len);
         if (read_len < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
