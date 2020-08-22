@@ -38,13 +38,19 @@ void stats_serialize() {
         free(buffers[i]);
     }
 
-    if (out_buffer == NULL) return;
+    if (out_buffer == NULL) {
+        free(buffers);
+        free(buf_len);
+        return;
+    }
 
     FILE *fp = fopen(stats_file_name, "w");
     fwrite(out_buffer, 1, total_len, fp);
     fclose(fp);
 
     free(out_buffer);
+    free(buffers);
+    free(buf_len);
 }
 
 void stats_deserialize() {
