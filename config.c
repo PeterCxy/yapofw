@@ -65,7 +65,7 @@ int parse_addr(char *s_addr, config_addr_t *addr_info) {
 
 config_item_t *parse_line(char *line) {
     // Make a copy for use with strtok
-    char *_line_copy = malloc(strlen(line));
+    char *_line_copy = malloc(strlen(line) + 1);
     if (_line_copy == NULL) return NULL;
     strcpy(_line_copy, line);
     char *line_copy = trim(_line_copy);
