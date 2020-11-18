@@ -14,13 +14,16 @@ include .depend
 
 $(OUT): $(OBJFILES)
 
-.PHONY: clean run release
+.PHONY: clean run release debug
 clean:
 	rm -f $(OBJFILES) $(OUT)
 	rm -f ./.depend
 
 run: $(OUT)
 	-./$(OUT) $(conf) $(stats)
+
+debug: $(OUT)
+	- gdb --args ./$(OUT) $(conf) $(stats)
 
 release: CFLAGS += -O3
 release: LDFLAGS += -O3
