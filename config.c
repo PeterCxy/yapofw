@@ -71,11 +71,14 @@ config_item_t *parse_line(char *line) {
     char *line_copy = trim(_line_copy);
     
     enum {
-        START, SRC_PROTO_READ, SRC_ADDR_READ, DST_PROTO_READ, FINAL
+        START, SRC_PROTO_READ, SRC_ADDR_READ, DST_PROTO_READ, DST_ADDR_READ, FAILOVER_MARKER_READ
     } line_parse_state = START;
     config_item_t *ret = malloc(sizeof(config_item_t));
     if (ret == NULL) return NULL;
     memset(ret, 0, sizeof(config_item_t));
+
+    config_addr_t failover_addrs[255];
+    size_t failover_addrs_num = 0;
 
     char *token = strtok(line_copy, " ");
     do {
@@ -106,20 +109,40 @@ config_item_t *parse_line(char *line) {
                     printf("Invalid dst address %s\n", token);
                     goto error_out;
                 }
-                line_parse_state = FINAL;
+                line_parse_state = DST_ADDR_READ;
                 break;
-            case FINAL:
-                printf("Unexpected token: %s\n", token);
-                goto error_out;
+            case DST_ADDR_READ:
+                if (strcmp(token, "failover") != 0) {
+                    printf("Unexpected token: %s\n", token);
+                    goto error_out;
+                }
+                line_parse_state = FAILOVER_MARKER_READ;
+                break;
+            case FAILOVER_MARKER_READ:
+                failover_addrs[failover_addrs_num].af = ret->dst_addr.af;
+                if (parse_addr(token, &failover_addrs[failover_addrs_num]) != 0) {
+                    printf("Invalid failover address %s\n", token);
+                    goto error_out;
+                }
+                failover_addrs_num++;
+                line_parse_state = DST_ADDR_READ;
+                break;
         }
     } while ((token = strtok(NULL, " ")) != NULL);
 
-    if (line_parse_state != FINAL) {
+    if (line_parse_state != DST_ADDR_READ) {
         printf("Invalid config line %s\n", line);
         goto error_out;
     }
 
     free(line_copy);
+
+    ret->failover_addrs_num = failover_addrs_num;
+    if (failover_addrs_num > 0) {
+        ret->failover_addrs = malloc(failover_addrs_num * sizeof(config_addr_t));
+        memcpy(ret->failover_addrs, failover_addrs, failover_addrs_num * sizeof(config_addr_t));
+    }
+
     return ret;
 
 error_out:

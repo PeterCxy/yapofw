@@ -7,6 +7,10 @@ typedef struct {
     int src_fd;
     config_addr_t src_addr;
     config_addr_t dst_addr;
+    config_addr_t *failover_addrs;
+    size_t failover_addrs_num;
+    size_t failover_cur_idx;
+    unsigned long connection_failed_cnt;
 } tcp_sock_listen_t;
 
 typedef struct tcp_sock_session_t {

@@ -71,16 +71,21 @@ void tcp_handle_accept() {
             continue;
         }
 
+        config_addr_t *dst_addr = &listen_sockets[i].dst_addr;
+        if (listen_sockets[i].failover_cur_idx != -1) {
+            dst_addr = &listen_sockets[i].failover_addrs[listen_sockets[i].failover_cur_idx];
+        }
+
         printf("[TCP] New connection from %s:%d on %s:%d, target: %s:%d\n",
             get_ip_str(&client_addr, ip_str, 255), get_ip_port(&client_addr),
             config_addr_to_str(&listen_sockets[i].src_addr, ip_str_1, 255), listen_sockets[i].src_addr.port,
-            config_addr_to_str(&listen_sockets[i].dst_addr, ip_str_2, 255), listen_sockets[i].dst_addr.port);
+            config_addr_to_str(dst_addr, ip_str_2, 255), dst_addr->port);
 
         // Create connection to target
-        int server_fd = socket(listen_sockets[i].dst_addr.af, SOCK_STREAM | SOCK_NONBLOCK, 0);
+        int server_fd = socket(dst_addr->af, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (server_fd < 0) {
             printf("[TCP] Unable to create connection to %s:%d, error: %s\n",
-                config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port,
+                config_addr_to_str(dst_addr, ip_str, 255), dst_addr->port,
                 strerror(errno));
             close(client_fd);
             continue;
@@ -88,7 +93,7 @@ void tcp_handle_accept() {
 
         size_t sockaddr_len = 0;
         struct sockaddr *address =
-            config_addr_to_sockaddr(&listen_sockets[i].dst_addr, &sockaddr_len);
+            config_addr_to_sockaddr(dst_addr, &sockaddr_len);
         if (address == NULL) {
             printf("Cannot properly convert TCP socket address\n");
             close(server_fd);
@@ -97,8 +102,11 @@ void tcp_handle_accept() {
         }
 
         if (connect(server_fd, address, sockaddr_len) < 0 && errno != EINPROGRESS) {
+            // If any error happens here, it is not a true connection error,
+            // (because we are using a non-blocking socket)
+            // so it does not trigger our failover logic.
             printf("[TCP] Unable to connect to %s:%d, error: %s\n",
-                config_addr_to_str(&listen_sockets[i].dst_addr, ip_str, 255), listen_sockets[i].dst_addr.port,
+                config_addr_to_str(dst_addr, ip_str, 255), dst_addr->port,
                 strerror(errno));
             close(client_fd);
             close(server_fd);
@@ -242,6 +250,11 @@ void tcp_handle_forward() {
                 shutdown(cur_session->outgoing_fd, SHUT_RDWR);
                 cur_session->incoming_outgoing_shutdown = 1;
                 cur_session->outgoing_incoming_shutdown = 1;
+                listen_sockets[cur_session->cfg_idx].connection_failed_cnt++;
+            } else {
+                if (listen_sockets[cur_session->cfg_idx].connection_failed_cnt > 0) {
+                    listen_sockets[cur_session->cfg_idx].connection_failed_cnt--;
+                }
             }
             cur_session->new_connection = 0;
         }
@@ -286,7 +299,33 @@ void tcp_handle_forward() {
     }
 }
 
+void tcp_handle_failover() {
+    for (int i = 0; i < listen_sockets_len; i++) {
+        if (listen_sockets[i].connection_failed_cnt >= 5) {
+            if (listen_sockets[i].failover_addrs_num == 0) {
+                // We can't do anything if there's literally no failover
+                listen_sockets[i].connection_failed_cnt = 0;
+                continue;
+            }
+
+            printf("[TCP] Forwarding connection for %s:%d has failed 5 times, triggering failover\n",
+                config_addr_to_str(&listen_sockets[i].src_addr, ip_str, 255), listen_sockets[i].src_addr.port);
+
+            if (listen_sockets[i].failover_cur_idx == listen_sockets[i].failover_addrs_num - 1) {
+                // Loop back if we are at the last one
+                listen_sockets[i].failover_cur_idx = -1;
+            } else {
+                listen_sockets[i].failover_cur_idx++;
+            }
+
+            listen_sockets[i].connection_failed_cnt = 0;
+        }
+    }
+}
+
 void tcp_after_poll() {
+    // Handle failover logic
+    tcp_handle_failover();
     // Handle new connections from the listening socket
     tcp_handle_accept();
     // Handle forwarding in single tcp connections
@@ -340,6 +379,10 @@ int tcp_init_from_config(config_item_t *config, size_t config_len) {
         listen_sockets[listen_sockets_len].src_fd = fd;
         listen_sockets[listen_sockets_len].src_addr = config[i].src_addr;
         listen_sockets[listen_sockets_len].dst_addr = config[i].dst_addr;
+        listen_sockets[listen_sockets_len].failover_addrs = config[i].failover_addrs;
+        listen_sockets[listen_sockets_len].failover_addrs_num = config[i].failover_addrs_num;
+        listen_sockets[listen_sockets_len].failover_cur_idx = -1; // -1 = not in failover mode
+        listen_sockets[listen_sockets_len].connection_failed_cnt = 0;
         listen_sockets_len++;
 
         // Register the fd to monitor for reads

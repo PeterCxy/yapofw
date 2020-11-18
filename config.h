@@ -20,6 +20,8 @@ typedef struct {
     config_addr_t src_addr;
     config_proto_t dst_proto;
     config_addr_t dst_addr;
+    config_addr_t *failover_addrs;
+    size_t failover_addrs_num;
 } config_item_t;
 
 // Parse text config from path
