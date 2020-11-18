@@ -1,6 +1,8 @@
 #pragma once
 #include "config.h"
+#include <time.h>
 #define BUF_SIZE 16384 // 16k, same as kernel (by default)
+#define CONN_TIMEOUT 5 // 5 seconds
 
 typedef struct {
     size_t cfg_idx;
@@ -16,6 +18,8 @@ typedef struct {
 typedef struct tcp_sock_session_t {
     // The index of the corresponding config item of this session
     size_t cfg_idx;
+    // The CLOCK_MONOTONIC timestamp when the connection was created
+    time_t create_ts;
     // 1 if this session has never yet been put into a poll()
     int new_connection;
     // The fd from the client to yapofw

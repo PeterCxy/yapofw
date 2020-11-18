@@ -65,3 +65,9 @@ int sockaddr_cmp(struct sockaddr *x, struct sockaddr *y) {
 #undef CMP
     return 0;
 }
+
+time_t time_mono() {
+    struct timespec tp;
+    clock_gettime(CLOCK_MONOTONIC, &tp);
+    return tp.tv_sec;
+}

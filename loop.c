@@ -107,7 +107,9 @@ void event_loop() {
             hooks_before_poll[i]();
         }
 
-        int poll_res = poll(poll_fds, poll_fds_len, 60 * 1000); // timeout: 1 minute
+        // Timeout is 1 secs because we need to react to
+        // TCP connect timeouts
+        int poll_res = poll(poll_fds, poll_fds_len, 1000);
 
         if (poll_res < 0) break; // Error
 

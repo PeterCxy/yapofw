@@ -122,6 +122,7 @@ void tcp_handle_accept() {
         session.client_addr = client_addr;
         session.dst_addr = *address;
         session.new_connection = 1;
+        session.create_ts = time_mono();
         tcp_session_add(session);
 
         // Also register for monitoring
@@ -235,17 +236,22 @@ void tcp_do_forward(int *src_fd, int *dst_fd,
 void tcp_handle_forward() {
     tcp_sock_session_t *cur_session = sessions;
     while (cur_session != NULL) {
+        int timeout = 0;
+        if (cur_session->new_connection) {
+            timeout = (time_mono() - cur_session->create_ts) >= CONN_TIMEOUT;
+        }
         if (cur_session->new_connection
-                && event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLIN)) {
+                && (event_loop_fd_revent_is_set(cur_session->outgoing_fd, POLLIN) || timeout)) {
             // The new connection has been set up (or failed)
             int err = 0;
             unsigned int optlen = sizeof(int);
-            getsockopt(cur_session->outgoing_fd, SOL_SOCKET, SO_ERROR, &err, &optlen);
-            if (err != 0) {
+            if (!timeout)
+                getsockopt(cur_session->outgoing_fd, SOL_SOCKET, SO_ERROR, &err, &optlen);
+            if (timeout || err != 0) {
                 printf("[TCP] %s:%d -> %s:%d failed: %s\n",
                     get_ip_str(&cur_session->client_addr, ip_str, 255), get_ip_port(&cur_session->client_addr),
                     get_ip_str(&cur_session->dst_addr, ip_str_1, 255), get_ip_port(&cur_session->dst_addr),
-                    strerror(err));
+                    timeout ? "Timed out" : strerror(err));
                 shutdown(cur_session->incoming_fd, SHUT_RDWR);
                 shutdown(cur_session->outgoing_fd, SHUT_RDWR);
                 cur_session->incoming_outgoing_shutdown = 1;
