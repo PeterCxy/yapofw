@@ -307,15 +307,16 @@ void tcp_handle_forward() {
 
 void tcp_handle_failover() {
     for (int i = 0; i < listen_sockets_len; i++) {
-        if (listen_sockets[i].connection_failed_cnt >= 5) {
+        if (listen_sockets[i].connection_failed_cnt >= FAILOVER_THRESHOLD) {
             if (listen_sockets[i].failover_addrs_num == 0) {
                 // We can't do anything if there's literally no failover
                 listen_sockets[i].connection_failed_cnt = 0;
                 continue;
             }
 
-            printf("[TCP] Forwarding connection for %s:%d has failed 5 times, triggering failover\n",
-                config_addr_to_str(&listen_sockets[i].src_addr, ip_str, 255), listen_sockets[i].src_addr.port);
+            printf("[TCP] Forwarding connection for %s:%d has failed %d times, triggering failover\n",
+                config_addr_to_str(&listen_sockets[i].src_addr, ip_str, 255), listen_sockets[i].src_addr.port,
+                FAILOVER_THRESHOLD);
 
             if (listen_sockets[i].failover_cur_idx == listen_sockets[i].failover_addrs_num - 1) {
                 // Loop back if we are at the last one

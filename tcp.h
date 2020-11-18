@@ -3,6 +3,7 @@
 #include <time.h>
 #define BUF_SIZE 16384 // 16k, same as kernel (by default)
 #define CONN_TIMEOUT 5 // 5 seconds
+#define FAILOVER_THRESHOLD 5
 
 typedef struct {
     size_t cfg_idx;
