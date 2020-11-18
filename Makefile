@@ -5,6 +5,7 @@ OUT      = yapofw
 CC      = gcc
 CFLAGS  = -flto -Wall
 LDFLAGS = -flto
+GDB     = gdb
 
 .depend: $(CFILES)
 	rm -f ./.depend
@@ -23,7 +24,7 @@ run: $(OUT)
 	-./$(OUT) $(conf) $(stats)
 
 debug: $(OUT)
-	- gdb --args ./$(OUT) $(conf) $(stats)
+	- $(GDB) --args ./$(OUT) $(conf) $(stats)
 
 release: CFLAGS += -O3
 release: LDFLAGS += -O3
