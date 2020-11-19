@@ -115,6 +115,8 @@ int stats_init_from_config(config_item_t *config, size_t config_len, const char 
 }
 
 void stats_add_bytes(size_t cfg_idx, unsigned long bytes, int direction) {
+    if (stats == NULL)
+        return;
     if (direction == STATS_DIRECTION_SRC_DST) {
         stats[cfg_idx].bytes_transmitted += bytes;
     } else if (direction == STATS_DIRECTION_DST_SRC) {
