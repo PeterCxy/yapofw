@@ -30,6 +30,10 @@ int main(int argc, char **argv) {
     size_t num = 0;
     config_item_t *config = parse_config(argv[1], &num);
 
+    if (config == NULL) {
+        return -1;
+    }
+
     if (argc >= 3 && stats_init_from_config(config, num, argv[2]) != 0) {
         printf("Error initializing the stats module\n");
         return -1;
