@@ -23,6 +23,7 @@ clean:
 run: $(OUT)
 	-./$(OUT) $(conf) $(stats)
 
+debug: CFLAGS += -g
 debug: $(OUT)
 	- $(GDB) --args ./$(OUT) $(conf) $(stats)
 
